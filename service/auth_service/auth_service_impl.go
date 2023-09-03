@@ -32,50 +32,87 @@ func (service *AuthServiceImpl) Register(ctx context.Context, request api_reques
 	helper.PanicIfError(err)
 	defer helper.CommitOrRollback(tx)
 
-	empty := domain.User{}
-	userExist, _ := service.UserRepository.FindByEmail(ctx, tx, request.Email)
+	channelRegister := make(chan domain.User, 1)
+	var wg sync.WaitGroup
 
-	if userExist != empty {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		userExist, _ := service.UserRepository.FindByEmail(ctx, tx, request.Email)
+		channelRegister <- userExist
+	}()
+
+	result := <-channelRegister
+
+	// cek jika email ada
+	empty := domain.User{}
+	if result != empty {
 		return api_response.AuthRegisterResponse{}, errors.New("Email telah terdaftar")
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
-	helper.PanicIfError(err)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-	tiketStr := strconv.Itoa(int(time.Now().Unix()))
-	tiket := sql.NullString{String: tiketStr, Valid: true}
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
+		helper.PanicIfError(err)
+		tiketStr := strconv.Itoa(int(time.Now().Unix()))
+		tiket := sql.NullString{String: tiketStr, Valid: true}
+		result.Nama = request.Nama
+		result.Email = request.Email
+		result.IdLembaga = request.IdLembaga
+		result.Tiket = tiket
+		result.Password = string(hashedPassword)
+		channelRegister <- result
+	}()
 
-	user := domain.User{
-		Nama:      request.Nama,
-		Email:     request.Email,
-		Password:  string(hashedPassword),
-		IdLembaga: request.IdLembaga,
-		Tiket:     tiket,
-	}
+	result = <-channelRegister
 
-	user = service.UserRepository.Save(ctx, tx, user)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		user := service.UserRepository.Save(ctx, tx, result)
+		channelRegister <- user
+	}()
 
-	newUser, err := service.UserRepository.FindById(ctx, tx, user.IdUser)
-	helper.PanicIfError(err)
+	result = <-channelRegister
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		newUser, err := service.UserRepository.FindById(ctx, tx, result.IdUser)
+		helper.PanicIfError(err)
+
+		channelRegister <- newUser
+	}()
+
+	go func() {
+		wg.Wait()
+		close(channelRegister)
+	}()
+
+	result = <-channelRegister
 
 	return api_response.AuthRegisterResponse{
-		Email: newUser.Email,
-		Tiket: tiketStr,
+		Email: result.Email,
+		Tiket: result.Tiket,
 	}, nil
 }
 
 func (service *AuthServiceImpl) Login(ctx context.Context, request api_request.AuthLoginRequest) (api_response.AuthLoginResponse, error) {
 	tx, err := service.DB.Begin()
 	helper.PanicIfError(err)
-	
+
 	defer helper.CommitOrRollback(tx)
 
-	channelUser := make(chan domain.User)
+	channelUser := make(chan domain.User, 1)
 	var wg sync.WaitGroup
 
 	// cek email exist
 	wg.Add(1)
-	go func(){
+	go func() {
 		defer wg.Done()
 
 		user, err := service.UserRepository.FindByEmail(ctx, tx, request.Email)
@@ -87,7 +124,7 @@ func (service *AuthServiceImpl) Login(ctx context.Context, request api_request.A
 
 	// cek password
 	wg.Add(1)
-	go func(){
+	go func() {
 		defer wg.Done()
 
 		err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(request.Password))
@@ -96,9 +133,9 @@ func (service *AuthServiceImpl) Login(ctx context.Context, request api_request.A
 
 	// create token
 	wg.Add(1)
-	go func(){
+	go func() {
 		defer wg.Done()
-	
+
 		token, err := helper.CreateToken(string(result.IdUser))
 		helper.PanicIfError(err)
 		result.Token = sql.NullString{String: token, Valid: true}
@@ -110,18 +147,18 @@ func (service *AuthServiceImpl) Login(ctx context.Context, request api_request.A
 
 	// update user
 	wg.Add(1)
-	go func(){
+	go func() {
 		defer wg.Done()
 
 		user := service.UserRepository.Update(ctx, tx, result)
 		channelUser <- user
 	}()
 
-	result = <- channelUser
+	result = <-channelUser
 
 	// find user
 	wg.Add(1)
-	go func(){
+	go func() {
 		defer wg.Done()
 
 		user, err := service.UserRepository.FindById(ctx, tx, result.IdUser)

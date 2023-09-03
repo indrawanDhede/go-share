@@ -8,5 +8,5 @@ import (
 
 type AuthService interface {
 	Register(ctx context.Context, request api_request.AuthRegisterRequest) (api_response.AuthRegisterResponse, error)
-	Login(ctx context.Context, request api_request.AuthLoginRequest, channelLogin chan<- interface{})
+	Login(ctx context.Context, request api_request.AuthLoginRequest) (api_response.AuthLoginResponse, error)
 }

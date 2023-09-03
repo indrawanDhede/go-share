@@ -1,14 +1,16 @@
 package main
 
 import (
-	"github.com/go-playground/validator"
-	"github.com/julienschmidt/httprouter"
 	"go_share/app"
 	"go_share/controller/auth_controller"
+	"go_share/exception"
 	"go_share/helper"
 	"go_share/repository/user_repository"
 	"go_share/service/auth_service"
 	"net/http"
+
+	"github.com/go-playground/validator"
+	"github.com/julienschmidt/httprouter"
 )
 
 func main() {
@@ -22,6 +24,8 @@ func main() {
 
 	router.POST("/api/v1/auth/register", authController.Register)
 	router.POST("/api/v1/auth/login", authController.Login)
+
+	router.PanicHandler = exception.ErrorHandler
 
 	server := http.Server{
 		Addr:    "localhost:8000",

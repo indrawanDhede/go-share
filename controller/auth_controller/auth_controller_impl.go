@@ -2,13 +2,13 @@ package auth_controller
 
 import (
 	"encoding/json"
-	"fmt"
-	"github.com/julienschmidt/httprouter"
 	"go_share/helper"
 	"go_share/model/api"
 	"go_share/model/api/api_request"
 	"go_share/service/auth_service"
 	"net/http"
+
+	"github.com/julienschmidt/httprouter"
 )
 
 type AuthControllerImpl struct {
@@ -54,20 +54,23 @@ func (controller AuthControllerImpl) Login(writer http.ResponseWriter, request *
 	err := decoder.Decode(&authLoginRequest)
 	helper.PanicIfError(err)
 
-	channelLogin := make(chan interface{})
-	defer close(channelLogin)
+	data, err := controller.AuthService.Login(request.Context(), authLoginRequest)
 
-	go controller.AuthService.Login(request.Context(), authLoginRequest, channelLogin)
+	if err != nil {
+		response := api.ApiResponseGeneral{
+			Code:   400,
+			Status: "BAD REQUEST",
+			Data:   err.Error(),
+		}
 
-	data := <-channelLogin
+		helper.WriteToResponse(writer, response)
+	} else {
+		response := api.ApiResponseGeneral{
+			Code:   200,
+			Status: "OK",
+			Data:   data,
+		}
 
-	fmt.Println("done..")
-
-	response := api.ApiResponseGeneral{
-		Code:   200,
-		Status: "OK",
-		Data:   data,
+		helper.WriteToResponse(writer, response)
 	}
-
-	helper.WriteToResponse(writer, response)
 }

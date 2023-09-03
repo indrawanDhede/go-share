@@ -1,10 +1,12 @@
 package api_response
 
+import "database/sql"
+
 type AuthLoginResponse struct {
 	Id_User            int    `json:"id_user"`
 	Nama               string `json:"nama"`
 	Email              string `json:"email"`
-	Token              string `json:"token"`
+	Token              sql.NullString `json:"token"`
 	Link_Foto          string `json:"link_foto"`
 	No_Hp              string `json:"no_hp"`
 	Jenjang_pendidikan string `json:"jenjang_pendidikan"`

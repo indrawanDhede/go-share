@@ -4,17 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/go-playground/validator"
 	"go_share/helper"
 	"go_share/model/api/api_request"
 	"go_share/model/api/api_response"
 	"go_share/model/domain"
 	"go_share/repository/user_repository"
-	"golang.org/x/crypto/bcrypt"
 	"strconv"
+	"sync"
 	"time"
+
+	"github.com/go-playground/validator"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthServiceImpl struct {
@@ -64,74 +64,83 @@ func (service *AuthServiceImpl) Register(ctx context.Context, request api_reques
 	}, nil
 }
 
-func (service *AuthServiceImpl) Login(ctx context.Context, request api_request.AuthLoginRequest, channelLogin chan<- interface{}) {
+func (service *AuthServiceImpl) Login(ctx context.Context, request api_request.AuthLoginRequest) (api_response.AuthLoginResponse, error) {
 	tx, err := service.DB.Begin()
 	helper.PanicIfError(err)
+	
 	defer helper.CommitOrRollback(tx)
 
+	channelUser := make(chan domain.User)
+	var wg sync.WaitGroup
+
 	// cek email exist
-	user, err := service.UserRepository.FindByEmail(ctx, tx, request.Email)
-	helper.PanicIfError(err)
+	wg.Add(1)
+	go func(){
+		defer wg.Done()
+
+		user, err := service.UserRepository.FindByEmail(ctx, tx, request.Email)
+		helper.PanicIfError(err)
+		channelUser <- user
+	}()
+
+	result := <-channelUser
 
 	// cek password
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.Password))
-	if err != nil {
-		panic(err)
-		fmt.Println("Password salah.")
-	}
+	wg.Add(1)
+	go func(){
+		defer wg.Done()
+
+		err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(request.Password))
+		helper.PanicIfError(err)
+	}()
 
 	// create token
-	token, err := CreateToken(string(user.IdUser))
-	user.Token = sql.NullString{String: token, Valid: true}
+	wg.Add(1)
+	go func(){
+		defer wg.Done()
+	
+		token, err := helper.CreateToken(string(result.IdUser))
+		helper.PanicIfError(err)
+		result.Token = sql.NullString{String: token, Valid: true}
+
+		channelUser <- result
+	}()
+
+	result = <-channelUser
 
 	// update user
-	user = service.UserRepository.Update(ctx, tx, user)
+	wg.Add(1)
+	go func(){
+		defer wg.Done()
+
+		user := service.UserRepository.Update(ctx, tx, result)
+		channelUser <- user
+	}()
+
+	result = <- channelUser
 
 	// find user
-	user, err = service.UserRepository.FindById(ctx, tx, user.IdUser)
+	wg.Add(1)
+	go func(){
+		defer wg.Done()
 
-	response := api_response.AuthLoginResponse{
-		Id_User: user.IdUser,
-		Nama:    user.Nama,
-		Email:   user.Email,
-		Token:   token,
-	}
+		user, err := service.UserRepository.FindById(ctx, tx, result.IdUser)
+		helper.PanicIfError(err)
 
-	channelLogin <- response
-}
+		channelUser <- user
+	}()
 
-func CreateToken(value string) (string, error) {
-	claims := jwt.MapClaims{
-		"id":  value,
-		"iat": time.Now().Unix(),
-		"exp": time.Now().Add(time.Hour * 1).Unix(), // Waktu kadaluwarsa token (contoh: 1 jam)
-	}
+	go func() {
+		wg.Wait()
+		close(channelUser)
+	}()
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	secretKey := []byte("key-token-rahasia") // Ganti dengan kunci rahasia yang kuat
+	responseUser := <-channelUser
 
-	tokenString, err := token.SignedString(secretKey)
-	if err != nil {
-		return "", err
-	}
-
-	return tokenString, nil
-}
-
-func verifyToken(tokenString string) (*jwt.Token, error) {
-	secretKey := []byte("key-token-rahasia")
-
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Metode tanda tangan tidak valid")
-		}
-
-		return secretKey, nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return token, nil
+	return api_response.AuthLoginResponse{
+		Id_User: responseUser.IdUser,
+		Nama:    responseUser.Nama,
+		Email:   responseUser.Email,
+		Token:   responseUser.Token,
+	}, nil
 }

@@ -20,7 +20,6 @@ func (controller *UserControllerImpl) FindAll(writer http.ResponseWriter, reques
 
 	userResponse := controller.UserService.FindAll(request.Context())
 	response := api.ApiResponseGeneral{
-		Total:  len(userResponse),
 		Code:   200,
 		Status: "OK",
 		Data:   userResponse,

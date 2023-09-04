@@ -1,4 +1,4 @@
-package routes
+package auth_routes
 
 import "github.com/julienschmidt/httprouter"
 

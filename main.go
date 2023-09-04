@@ -1,18 +1,14 @@
 package main
 
 import (
+	"github.com/go-playground/validator"
 	"go_share/app"
-	"go_share/controller/auth_controller"
-	"go_share/controller/user_controller"
 	"go_share/exception"
 	"go_share/helper"
-	"go_share/repository/user_repository"
-	"go_share/routes"
-	"go_share/service/auth_service"
-	"go_share/service/user_service"
+	"go_share/routes/auth_routes"
+	"go_share/routes/user_routes"
 	"net/http"
 
-	"github.com/go-playground/validator"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -20,16 +16,11 @@ func main() {
 	db := app.NewDB()
 	validate := validator.New()
 	router := httprouter.New()
-	authRepository := user_repository.NewUserRepository()
-	authService := auth_service.NewAuthService(authRepository, db, validate)
-	userService := user_service.NewUserService(authRepository, db, validate)
-	authController := auth_controller.NewAuthController(authService)
-	userController := user_controller.NewUserController(userService)
 
-	authRoutes := routes.InitializeAuthComponents(authController)
+	authRoutes := auth_routes.InitializeAuthRoute(db, validate)
 	authRoutes.AuthRoutesComponent(router)
-
-	router.GET("/api/v1/user", userController.FindAll)
+	userRoutes := user_routes.InitializeUserRoute(db, validate)
+	userRoutes.UserRoutesComponent(router)
 
 	router.PanicHandler = exception.ErrorHandler
 

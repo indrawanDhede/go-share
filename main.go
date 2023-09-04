@@ -5,6 +5,7 @@ import (
 	"go_share/app"
 	"go_share/exception"
 	"go_share/helper"
+	"go_share/middleware"
 	"go_share/routes/auth_routes"
 	"go_share/routes/user_routes"
 	"net/http"
@@ -26,7 +27,7 @@ func main() {
 
 	server := http.Server{
 		Addr:    "localhost:8000",
-		Handler: router,
+		Handler: middleware.NewAuthMiddleware(router, db),
 	}
 
 	err := server.ListenAndServe()

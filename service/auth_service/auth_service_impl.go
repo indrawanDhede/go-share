@@ -45,7 +45,6 @@ func (service *AuthServiceImpl) Register(ctx context.Context, request api_reques
 
 	result := <-channelRegister
 
-	// cek jika email ada
 	empty := domain.User{}
 	if result != empty {
 		return api_response.AuthRegisterResponse{}, errors.New("Email telah terdaftar")
@@ -135,8 +134,8 @@ func (service *AuthServiceImpl) Login(ctx context.Context, request api_request.A
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-
-		token, err := helper.CreateToken(string(result.IdUser))
+		id := strconv.Itoa(result.IdUser)
+		token, err := helper.CreateToken(id)
 		helper.PanicIfError(err)
 		result.Token = sql.NullString{String: token, Valid: true}
 

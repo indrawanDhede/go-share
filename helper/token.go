@@ -9,13 +9,13 @@ import (
 
 func CreateToken(id string) (string, error) {
 	claims := jwt.MapClaims{
-		"sub":  id,
+		"sub": id,
 		"iat": time.Now().Unix(),
 		"exp": time.Now().Add(time.Hour * 1).Unix(), // Waktu kadaluwarsa token (contoh: 1 jam)
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	secretKey := []byte("key-token-rahasia") // Ganti dengan kunci rahasia yang kuat
+	secretKey := []byte("key-token-rahasia") // Ganti dengan kunci rahasia
 
 	tokenString, err := token.SignedString(secretKey)
 	if err != nil {

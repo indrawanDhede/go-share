@@ -1,8 +1,8 @@
 package api_request
 
 type AuthRegisterRequest struct {
-	Nama      string
-	Email     string
-	Password  string
-	IdLembaga int
+	Nama      string `json:"nama"`
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+	IdLembaga int    `json:"id_lembaga"`
 }

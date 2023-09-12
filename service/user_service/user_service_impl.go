@@ -2,28 +2,28 @@ package user_service
 
 import (
 	"context"
-	"database/sql"
 	"github.com/go-playground/validator"
 	"go_share/helper"
 	"go_share/model/api/api_response"
 	"go_share/model/domain"
 	"go_share/repository/user_repository"
+	"gorm.io/gorm"
 	"sync"
 )
 
 type UserServiceImpl struct {
 	UserRepository user_repository.UserRepository
-	DB             *sql.DB
+	DB             *gorm.DB
 	Validator      *validator.Validate
 }
 
-func NewUserService(userRepository user_repository.UserRepository, DB *sql.DB, validator *validator.Validate) UserService {
+func NewUserService(userRepository user_repository.UserRepository, DB *gorm.DB, validator *validator.Validate) UserService {
 	return &UserServiceImpl{UserRepository: userRepository, DB: DB, Validator: validator}
 }
 
 func (service *UserServiceImpl) FindAll(ctx context.Context) []api_response.UserResponse {
-	tx, err := service.DB.Begin()
-	helper.PanicIfError(err)
+	tx := service.DB.Begin()
+	helper.PanicIfError(tx.Error)
 	defer helper.CommitOrRollback(tx)
 
 	channelUser := make(chan []domain.User, 1)

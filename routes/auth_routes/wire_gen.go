@@ -7,16 +7,16 @@
 package auth_routes
 
 import (
-	"database/sql"
 	"github.com/go-playground/validator"
 	"go_share/controller/auth_controller"
 	"go_share/repository/user_repository"
 	"go_share/service/auth_service"
+	"gorm.io/gorm"
 )
 
 // Injectors from auth_injector.go:
 
-func InitializeAuthRoute(db *sql.DB, validate *validator.Validate) *AuthRoutesImpl {
+func InitializeAuthRoute(db *gorm.DB, validate *validator.Validate) *AuthRoutesImpl {
 	userRepository := user_repository.NewUserRepository()
 	authService := auth_service.NewAuthService(userRepository, db, validate)
 	authController := auth_controller.NewAuthController(authService)

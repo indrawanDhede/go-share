@@ -7,16 +7,16 @@
 package user_routes
 
 import (
-	"database/sql"
 	"github.com/go-playground/validator"
 	"go_share/controller/user_controller"
 	"go_share/repository/user_repository"
 	"go_share/service/user_service"
+	"gorm.io/gorm"
 )
 
 // Injectors from user_injector.go:
 
-func InitializeUserRoute(db *sql.DB, validate *validator.Validate) *UserRoutesImpl {
+func InitializeUserRoute(db *gorm.DB, validate *validator.Validate) *UserRoutesImpl {
 	userRepository := user_repository.NewUserRepository()
 	userService := user_service.NewUserService(userRepository, db, validate)
 	userController := user_controller.NewUserController(userService)
